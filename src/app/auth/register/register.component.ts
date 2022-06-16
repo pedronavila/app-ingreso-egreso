@@ -1,8 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Store } from '@ngrx/store';
+import { AppState } from 'src/app/app.reducer';
 import { AuthService } from 'src/app/services/auth.service';
 import Swal from 'sweetalert2';
+import { Subscription } from 'rxjs';
+import { isLoading, stopLoading } from 'src/app/shared/ui.actions';
 
 @Component({
   selector: 'app-register',
@@ -13,8 +17,15 @@ import Swal from 'sweetalert2';
 export class RegisterComponent implements OnInit {
 
   registerForm: FormGroup;
+  loading: boolean = false;
+  uiSubscription: Subscription = new Subscription();
 
-  constructor(private fb: FormBuilder, private authService: AuthService, private router:Router) {
+  constructor(
+    private fb: FormBuilder,
+    private authService: AuthService,
+    private router:Router,
+    private store: Store<AppState>
+    ) {
     this.registerForm = this.fb.group({
       nombre: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
@@ -23,22 +34,28 @@ export class RegisterComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.uiSubscription = this.store.select('ui').subscribe(ui=>{
+      this.loading = ui.isLoading;
+    })
   }
 
   crearUsuario(): void {
     if(this.registerForm.invalid) return;
-    Swal.fire({
-      title: 'Espere por favor',
-      didOpen: () => {
-        Swal.showLoading()
-      }
-    })
+
+    this.store.dispatch(isLoading())
+    // Swal.fire({
+    //   title: 'Espere por favor',
+    //   didOpen: () => {
+    //     Swal.showLoading()
+    //   }
+    // })
     const {nombre, email, password} = this.registerForm.value;
     this.authService.register(nombre, email, password).then(credenciales=>{
-      Swal.close();
+      this.store.dispatch(stopLoading())
       this.router.navigate(['/'])
     })
     .catch(error=>{
+      this.store.dispatch(stopLoading())
       Swal.fire({
         icon: 'error',
         title: 'Oops...',
